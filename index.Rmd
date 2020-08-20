@@ -19,7 +19,6 @@ output:
     number_sections: false
     code_folding: hide
     code_download: true
-bibliography: references.bib
 link-citations: true
 ---
 
@@ -73,7 +72,7 @@ BRCAMatrix <- assay(BRCARnaseq_assay,"raw_counts")
 For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
 
 ```{r, eval = FALSE}
-BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)`
+BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)
 ```
 
 ### Differential expression analysis (DEA) {-}
