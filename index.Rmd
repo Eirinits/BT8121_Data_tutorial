@@ -1,5 +1,10 @@
 ---
 title: "Data analysis tutorial for BT8121"
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 author: "[Eirini Tsirvouli]()"
 date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
 output:
@@ -14,6 +19,7 @@ output:
     number_sections: false
     code_folding: hide
     code_download: true
+bibliography: references.bib
 link-citations: true
 ---
 
@@ -67,7 +73,7 @@ BRCAMatrix <- assay(BRCARnaseq_assay,"raw_counts")
 For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
 
 ```{r, eval = FALSE}
-BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)
+BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)`
 ```
 
 ### Differential expression analysis (DEA) {-}
