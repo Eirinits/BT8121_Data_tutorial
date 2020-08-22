@@ -1,15 +1,10 @@
 ---
 title: "Data analysis tutorial for BT8121"
-knit: (function(input_file, encoding) {
-  out_dir <- 'docs';
-  rmarkdown::render(input_file,
- encoding=encoding,
- output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 author: "[Eirini Tsirvouli]()"
 date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
-    css: style.css
+    #css: styles.css
     theme: united
     toc: true
     toc_float:
@@ -19,20 +14,23 @@ output:
     number_sections: false
     code_folding: hide
     code_download: true
-bibliography: references.bib
 link-citations: true
 ---
 
 # Intro {-}
 In this document, a tutorial for a multi-omics data analysis of cancer data is provided. The tutorial was composed for the students of BT8121 in Norwegian University of Science and Technology and it aims to their training in data retrieval and analysis as a starting point of logical model building. All data used for this tutorial are public and retrieved from [GDC Data Portal](https://portal.gdc.cancer.gov/). The tutorial makes use of some existing packages and parts of their vignettes, such as [TCGABioLinks](https://bioconductor.org/packages/release/bioc/html/TCGAbiolinks.html). 
 
+In this tutorial, the query and analysis of four types of omics data is provided. These omics data include gene expression, mutation, copy number variation CNV) and methylation data. All analyses, but the CNV one is performed using R. For CNV, I provide the code to retrieve the data and prepare them in the correct format that the webtool GISTIC2.0 requires for their analysis. Additionally, the code to analyse the files that GISTIC 2.0 produces is also provided. 
+
 The markdown document was created using the template from [rtemps](https://github.com/bblodfon/rtemps) package.
+
+If any questions, please contact me at eirini.tsirvouli@ntnu.no
 
 
 # Load libraries {-}
 
 Loading libraries:
-```{r Load libraries, message = FALSE, echo=FALSE}
+```{r Load libraries, message = FALSE, echo=TRUE, warning=FALSE}
 library(DT)
 library(ggplot2)
 library(xfun)
@@ -41,7 +39,8 @@ library(tidyverse)
 library(maftools)
 library(data.table)
 library(knitr)
-opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+library(biomaRt)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE) #settings for adjusting code blocks' appearance
 ```
 
 # Query expression data {-}
@@ -62,7 +61,7 @@ data <- GDCprepare(query)
 
 ## Preprocessing {-}
 
-Prepare expression matrix with geneID in the rows and samples (barcode) in the columns
+Prepare expression matrix with geneID in the rows and samples (barcode) in the columns.
 
 ```{r, eval = FALSE}
 BRCARnaseq_assay <- GDCprepare(query)
@@ -70,22 +69,19 @@ BRCARnaseq_assay <- GDCprepare(query)
 BRCAMatrix <- assay(BRCARnaseq_assay,"raw_counts")
 ```
 
-For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
+In order to define outliers in your data, you can produce a boxplot correlation and AAIC plot:
 
 ```{r, eval = FALSE}
-BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)`
+BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)
 ```
 
 ### Differential expression analysis (DEA) {-}
 
 Using the `TCGAanalyze_DEA` function, a Differential Expression Analysis can be performed in order to idenify differentially expressed genes (DEGs) between normal and tumor samples. The `TCGAanalyze_DEA` uses fucntions of the [edgeR package](https://bioconductor.org/packages/release/bioc/html/edgeR.html).
 
-
-Perform DEA (Differential expression analysis) to identify differentially expressed genes (DEGs) using the TCGAanalyze_DEA function.
-
 ```{r, eval = FALSE}
 
-# normalization of genes
+# normalization of data
 dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo)
 
 # quantile filter of genes
@@ -93,11 +89,11 @@ dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
                                   method = "quantile", 
                                   qnt.cut =  0.25)
 
-# selection of normal samples "NT"
+# selection of normal samples coded as "NT"
 samplesNT <- TCGAquery_SampleTypes(barcode = colnames(dataFilt),
                                    typesample = c("NT"))
 
-# selection of tumor samples "TP"
+# selection of tumor samples coded as "TP"
 samplesTP <- TCGAquery_SampleTypes(barcode = colnames(dataFilt), 
                                    typesample = c("TP"))
 
@@ -148,7 +144,7 @@ load("BRCA_maskedCNV.rda")
 
 ## GISTIC 2.0 analysis {-}
 
-The [GISTIC 2.0](https://www.genepattern.org/modules/docs/GISTIC_2.0) (Genomic Identification of Significant Targets in Cancer) tool can be used to identify genomic regions that are significantly amplified or deleted in the cancer type of interest. GISTIC 2.0 can be run through the GenePattern server or locally from your computer. In this tutorial GenePattern is used.
+The [GISTIC 2.0](https://www.genepattern.org/modules/docs/GISTIC_2.0) (Genomic Identification of Significant Targets in Cancer) tool can be used to identify genomic regions that are significantly amplified or deleted in the cancer type of interest. GISTIC 2.0 can be run through the [GenePattern](https://www.genepattern.org/modules/docs/GISTIC_2.0) or locally from your computer. In this tutorial GenePattern is used.
 
 ## Prepare CNV data for GISTIC analysis
 
@@ -221,8 +217,6 @@ BRCAmet <- GDCprepare(query = query,
 ## Differentially methylated regions analysis {-}
 
 ```{r, eval=FALSE}
-
-
 data <- TCGAanalyze_DMR(data, groupCol = "methylation_subtype",
                         group1 = "CIMP.H",
                         group2="CIMP.L",
@@ -237,11 +231,13 @@ data <- TCGAanalyze_DMR(data, groupCol = "methylation_subtype",
 
 In order to identify which are those processes the affected genes identified from your analysis, you can perform an Enrichment Analysis. The enrichment analysis can be performed against various databases and/or against GO terms.
 
-Depending on your choice you can use one (or more) of the following packages for your analysis.
+Depending on your choice you can use one (or more) of the following packages for your analysis:
 
-Reactome EA: [ReactomePA](http://bioconductor.org/packages/release/bioc/html/ReactomePA.html)
-KEGG and GOterms:
-ACSN:
+* Reactome EA: [ReactomePA](http://bioconductor.org/packages/release/bioc/html/ReactomePA.html)
+* KEGG and GOterms: [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)
+* ACSN: [ACSNMineR](https://cran.r-project.org/web/packages/ACSNMineR/index.html)
+
+Please advise the documentation of the packages on how to use them. 
 
 # R session info {-}
 
