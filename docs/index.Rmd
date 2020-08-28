@@ -20,7 +20,7 @@ link-citations: true
 # Intro {-}
 In this document, a tutorial for a multi-omics data analysis of cancer data is provided. The tutorial was composed for the students of BT8121 in Norwegian University of Science and Technology and it aims to their training in data retrieval and analysis as a starting point of logical model building. All data used for this tutorial are public and retrieved from [GDC Data Portal](https://portal.gdc.cancer.gov/). The tutorial makes use of some existing packages and parts of their vignettes, such as [TCGABioLinks](https://bioconductor.org/packages/release/bioc/html/TCGAbiolinks.html). 
 
-In this tutorial, the query and analysis of four types of omics data is provided. These omics data include gene expression, mutation, copy number variation CNV) and methylation data. All analyses, but the CNV one is performed using R. For CNV, I provide the code to retrieve the data and prepare them in the correct format that the webtool GISTIC2.0 requires for their analysis. Additionally, the code to analyse the files that GISTIC 2.0 produces is also provided. 
+In this tutorial, the query and analysis of four types of omics data is provided. These omics data include gene expression, mutation, copy number variation (CNV) and methylation data. All analyses, but the CNV one is performed using R. For CNV, I provide the code to retrieve the data and prepare them in the correct format that the webtool GISTIC2.0 requires for their analysis. Additionally, the code to analyse the files that GISTIC 2.0 produces is also provided. 
 
 The markdown document was created using the template from [rtemps](https://github.com/bblodfon/rtemps) package.
 
@@ -61,18 +61,10 @@ data <- GDCprepare(query)
 
 ## Preprocessing {-}
 
-Prepare expression matrix with geneID in the rows and samples (barcode) in the columns.
-
-```{r, eval = FALSE}
-BRCARnaseq_assay <- GDCprepare(query)
-
-BRCAMatrix <- assay(BRCARnaseq_assay,"raw_counts")
-```
-
 In order to define outliers in your data, you can produce a boxplot correlation and AAIC plot:
 
 ```{r, eval = FALSE}
-BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseq_assay)
+dataPrep <- TCGAanalyze_Preprocessing(data)
 ```
 
 ### Differential expression analysis (DEA) {-}
@@ -82,7 +74,13 @@ Using the `TCGAanalyze_DEA` function, a Differential Expression Analysis can be 
 ```{r, eval = FALSE}
 
 # normalization of data
-dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo)
+dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo, method = "gcContent")
+
+#Visualize data before and after normalization
+par(mfrow=c(2,1))
+boxplot(dataPrep, outline = F, names = F, main = "Before Normalization")
+boxplot(dataNorm, outline = F, names = F, main = "After Normalization")
+dev.off()
 
 # quantile filter of genes
 dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
@@ -106,6 +104,11 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,samplesNT],
                             logFC.cut = 1,
                             method = "glmLRT")
 
+#Volcano plot
+
+plot(dataDEGs$logFC, -log10(dataDEGs$PValue), xlab = "Fold Change",
+     ylab = "-log10(pvalue)")
+
 # DEGs table with expression values in normal and tumor samples
 dataDEGsFiltLevel <- TCGAanalyze_LevelTab(dataDEGs,"Tumor","Normal",
                                           dataFilt[,samplesTP],dataFilt[,samplesNT])
@@ -125,6 +128,15 @@ TCGAvisualize_oncoprint(mut = mut, genes = mut$Hugo_Symbol[1:20],
                         heatmap.legend.side = "right",
                         dist.col = 0,
                         label.font.size = 10)
+```
+
+# Plots {-}
+```{r, eval = FALSE}
+plotmafSummary(maf = maf, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE)
+
+oncoplot(maf = maf, top = 20, legendFontSize = 8)
+
+lollipopPlot(maf = maf, "TP53") # visualize mutation points for specific genes of interest
 ```
 
 # Query Copy Number Variation data {-}
@@ -214,18 +226,26 @@ BRCAmet <- GDCprepare(query = query,
                       summarizedExperiment = TRUE)
 ```
 
+## Preprocessing {-}
+
+```{r, eval=FALSE}
+met = subset(BRCAmet, rowSums(assay(data)) != 0)
+
+TCGAvisualize_meanMethylation(met, groupCol = "definition", group.legend = "Groups",
+                              filename = "meanMethyl.pdf", print.pvalue =  TRUE)
+```
+
 ## Differentially methylated regions analysis {-}
 
 ```{r, eval=FALSE}
-data <- TCGAanalyze_DMR(data, groupCol = "methylation_subtype",
-                        group1 = "CIMP.H",
-                        group2="CIMP.L",
-                        p.cut = 10^-5,
+diff_met <- TCGAanalyze_DMR(met, groupCol = "definition",
+                        group1 = "Solid Tissue Normal",
+                        group2="Primary Solid Tumor",
+                        p.cut = 10^-3,
                         diffmean.cut = 0.25,
                         legend = "State",
-                        plot.filename = "coad_CIMPHvsCIMPL_metvolcano.png")
+                        plot.filename = "methBRCA.png")
 ```
-
 
 # Enrichment analysis {-}
 
@@ -238,10 +258,3 @@ Depending on your choice you can use one (or more) of the following packages for
 * ACSN: [ACSNMineR](https://cran.r-project.org/web/packages/ACSNMineR/index.html)
 
 Please advise the documentation of the packages on how to use them. 
-
-# R session info {-}
-
-```{r session info, comment=""}
-xfun::session_info()
-```
-
